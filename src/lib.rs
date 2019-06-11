@@ -117,23 +117,41 @@ mod tests {
     use futures::stream::StreamExt;
 
     struct TestSink {
-        out: Vec<u8>
+        out: Vec<u8>,
+        count: usize,
     }
 
     impl TestSink {
         fn new() -> TestSink {
-            TestSink { out: Vec::with_capacity(2) }
+            TestSink { out: Vec::with_capacity(2), count: 0 }
         }
     }
 
     impl TardySink<u8> for TestSink {
         type SinkError = ();
 
-        fn poll_send(mut self: Pin<&mut Self>, _cx: &mut Context<'_>, item: u8)
+        fn poll_send(mut self: Pin<&mut Self>, cx: &mut Context<'_>, item: u8)
             -> Result<Option<u8>, Self::SinkError>
         {
-            self.out.push(item);
-            Ok(None)
+            self.count += 1;
+
+            // For testing, push back as Pending every other time
+            if self.count % 2 == 0 {
+                eprintln!("poll send back (count: {})", self.count);
+
+                // Waking is currently needed. Test never completes without it.
+                //
+                // FIXME: Currently assuming this is an appropriate, TardySink
+                // impl. requirement. Alternative it would need to be included
+                // in BuffereSink whenever it returns Pending.
+                cx.waker().wake_by_ref();
+
+                Ok(Some(item))
+            } else {
+                self.out.push(item);
+                eprintln!("poll send pushed, output: {:?}", self.out);
+                Ok(None)
+            }
         }
     }
 
