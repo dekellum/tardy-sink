@@ -27,6 +27,7 @@ pub trait TardySink<Item>: Unpin
     }
 }
 
+/// Wrapper type for TardySink, buffering a single item to implement the standard `Sink`.
 pub struct BufferedSink<Item, Ts>
     where Ts: TardySink<Item>, Item: Unpin
 {
@@ -45,7 +46,7 @@ impl<Item, Ts> BufferedSink<Item, Ts>
         self.ts
     }
 
-    fn poll_flush_buf(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
+    fn poll_flush_buf(&mut self, cx: &mut Context<'_>)
         -> Poll<Result<(), Ts::SinkError>>
     {
         if let Some(item) = self.buf.take() {
@@ -69,7 +70,7 @@ impl<Item, Ts> Sink<Item> for BufferedSink<Item, Ts>
 {
     type SinkError = Ts::SinkError;
 
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>)
+    fn poll_ready(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
         -> Poll<Result<(), Self::SinkError>>
     {
         self.poll_flush_buf(cx)
@@ -86,15 +87,27 @@ impl<Item, Ts> Sink<Item> for BufferedSink<Item, Ts>
     fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>)
         -> Poll<Result<(), Self::SinkError>>
     {
-        self.poll_flush_buf(cx)
+        let this = self.get_mut();
+        match this.poll_flush_buf(cx) {
+            Poll::Ready(Ok(_)) => {
+                let tsp: Pin<&mut Ts> = Pin::new(&mut this.ts);
+                tsp.poll_flush(cx)
+            }
+            res => res
+        }
     }
 
-    fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>)
+    fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
         -> Poll<Result<(), Self::SinkError>>
     {
-        self.poll_flush_buf(cx)
+        match Pin::new(&mut self).poll_flush(cx) {
+            Poll::Ready(Ok(_)) => {
+                let tsp: Pin<&mut Ts> = Pin::new(&mut self.ts);
+                tsp.poll_close(cx)
+            }
+            res => res
+        }
     }
-
 }
 
 #[cfg(test)]
