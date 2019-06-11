@@ -5,7 +5,7 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use futures::sink::Sink;
 
-/// A sink which doesn't know it's readyiness until it tries to consume an Item
+/// A sink which doesn't know it's readiness until it tries to consume an Item
 pub trait TardySink<Item>: Unpin
     where Item: Unpin
 {
@@ -27,7 +27,8 @@ pub trait TardySink<Item>: Unpin
     }
 }
 
-/// Wrapper type for TardySink, buffering a single item to implement the standard `Sink`.
+/// Wrapper type for TardySink, buffering a single item to implement the
+/// standard `Sink`.
 pub struct BufferedSink<Item, Ts>
     where Ts: TardySink<Item>, Item: Unpin
 {
@@ -142,8 +143,8 @@ mod tests {
                 // Waking is currently needed. Test never completes without it.
                 //
                 // FIXME: Currently assuming this is an appropriate, TardySink
-                // impl. requirement. Alternative it would need to be included
-                // in BuffereSink whenever it returns Pending.
+                // impl. requirement. Alternatively, it would need to be
+                // included in BufferedSink whenever it returns Pending.
                 cx.waker().wake_by_ref();
 
                 Ok(Some(item))
