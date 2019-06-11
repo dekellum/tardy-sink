@@ -44,29 +44,9 @@ impl<Item, Ts> BufferedSink<Item, Ts>
     pub fn into_inner(self) -> Ts {
         self.ts
     }
-}
 
-impl<Item, Ts> Sink<Item> for BufferedSink<Item, Ts>
-    where Ts: TardySink<Item>, Item: Unpin
-{
-    type SinkError = Ts::SinkError;
-
-    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
-    {
-        self.poll_flush(cx)
-    }
-
-    fn start_send(mut self: Pin<&mut Self>, item: Item)
-        -> Result<(), Self::SinkError>
-    {
-        assert!(self.buf.is_none());
-        self.buf = Some(item);
-        Ok(())
-    }
-
-    fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
+    fn poll_flush_buf(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
+        -> Poll<Result<(), Ts::SinkError>>
     {
         if let Some(item) = self.buf.take() {
             let tsp: Pin<&mut Ts> = Pin::new(&mut self.ts);
@@ -82,11 +62,37 @@ impl<Item, Ts> Sink<Item> for BufferedSink<Item, Ts>
             Poll::Ready(Ok(()))
         }
     }
+}
+
+impl<Item, Ts> Sink<Item> for BufferedSink<Item, Ts>
+    where Ts: TardySink<Item>, Item: Unpin
+{
+    type SinkError = Ts::SinkError;
+
+    fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>)
+        -> Poll<Result<(), Self::SinkError>>
+    {
+        self.poll_flush_buf(cx)
+    }
+
+    fn start_send(mut self: Pin<&mut Self>, item: Item)
+        -> Result<(), Self::SinkError>
+    {
+        assert!(self.buf.is_none());
+        self.buf = Some(item);
+        Ok(())
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>)
+        -> Poll<Result<(), Self::SinkError>>
+    {
+        self.poll_flush_buf(cx)
+    }
 
     fn poll_close(self: Pin<&mut Self>, cx: &mut Context<'_>)
         -> Poll<Result<(), Self::SinkError>>
     {
-        self.poll_flush(cx)
+        self.poll_flush_buf(cx)
     }
 
 }
