@@ -3,6 +3,8 @@ name = "tardy-sink"
 version = "0.1.0"
 authors = ["David Kellum <dek-oss@gravitext.com>"]
 edition = "2018"
+license       = "MIT/Apache-2.0"
+description   = "futures 0.3 Sink implementer ergonomic aid"
 
 [dependencies]
 futures = { version=">=0.3.0-alpha.16, <0.4", package="futures-preview" }
