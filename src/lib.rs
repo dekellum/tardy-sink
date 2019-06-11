@@ -5,21 +5,40 @@ use std::pin::Pin;
 use std::task::{Context, Poll};
 use futures::sink::Sink;
 
-/// A sink which doesn't know it's readiness until it tries to consume an Item
+/// A sink which doesn't know it's readiness until it tries to consume an Item.
 pub trait TardySink<Item>: Unpin
     where Item: Unpin
 {
     type SinkError;
 
+    /// Attempt to consume an `Item`, as a logical combination of
+    /// `Sink::poll_ready` and `Sink::start_send`.
+    ///
+    /// This should return one of:
+    ///
+    /// * `Ok(None)` on successful and complete consumption of the item.
+    /// * `Ok(Some(item))` if the sink is not ready (e.g. Poll::Pending),
+    ///   returning the item for later retries.
+    /// * `Err(e)` on any error occurring during a check for readiness or
+    ///   consumption of the item.
+    ///
+    /// Note also that when returning `Ok(Some(item))`, this implementation or
+    /// its delegate must eventually _wake_, via the passed `Context`
+    /// accessible `Waker`, in order to continue.
     fn poll_send(self: Pin<&mut Self>, cx: &mut Context<'_>, item: Item)
         -> Result<Option<Item>, Self::SinkError>;
 
+
+    /// Equivalent to `Sink::poll_flush`, with this default no-op
+    /// implementation always returning `Poll::Ready(Ok(()))`.
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>)
         -> Poll<Result<(), Self::SinkError>>
     {
         Poll::Ready(Ok(()))
     }
 
+    /// Equivalent to `Sink::poll_close`, with this default no-op
+    /// implementation always returning `Poll::Ready(Ok(()))`.
     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>)
         -> Poll<Result<(), Self::SinkError>>
     {
@@ -43,6 +62,7 @@ impl<Item, Ts> BufferedSink<Item, Ts>
         BufferedSink { ts, buf: None }
     }
 
+    /// Consume self, returning the inner `TardySink`.
     pub fn into_inner(self) -> Ts {
         self.ts
     }
@@ -144,7 +164,7 @@ mod tests {
                 //
                 // FIXME: Currently assuming this is an appropriate, TardySink
                 // impl. requirement. Alternatively, it would need to be
-                // included in BufferedSink whenever it returns Pending.
+                // included in BufferedSink, whenever it returns Pending.
                 cx.waker().wake_by_ref();
 
                 Ok(Some(item))
