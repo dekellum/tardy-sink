@@ -8,3 +8,4 @@ description   = "futures 0.3 Sink implementer ergonomic aid"
 
 [dependencies]
 futures = { version=">=0.3.0-alpha.16, <0.4", package="futures-preview" }
+pin-utils = { version=">=0.1.0-alpha.4, <0.2" }
