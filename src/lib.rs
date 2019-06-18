@@ -45,27 +45,40 @@ pub trait TardySink<Item>
     }
 }
 
+pub trait TardySinkExt<Item>: TardySink<Item> {
+    /// Consume self and return a `Sink` adapter
+    fn into_sink(self) -> OneBuffer<Self, Item>
+        where Self: Sized
+    {
+        OneBuffer::new(self)
+    }
+}
+
+impl<T, Item> TardySinkExt<Item> for T
+    where T: TardySink<Item>
+{}
+
 /// Wrapper type for TardySink, buffering a single item to implement the
-/// standard `Sink`.
-pub struct BufferedSink<Item, Ts>
+/// standard `Sink`. This is normally constructed via [`TardySinkExt::into_sink`].
+pub struct OneBuffer<Ts, Item>
     where Ts: TardySink<Item>
 {
     ts: Ts,
     buf: Option<Item>
 }
 
-impl<Item, Ts> Unpin for BufferedSink<Item, Ts>
+impl<Ts, Item> Unpin for OneBuffer<Ts, Item>
     where Ts: TardySink<Item> + Unpin
 {}
 
-impl<Item, Ts> BufferedSink<Item, Ts>
+impl<Ts, Item> OneBuffer<Ts, Item>
     where Ts: TardySink<Item>
 {
     unsafe_pinned!(ts: Ts);
     unsafe_unpinned!(buf: Option<Item>);
 
     pub fn new(ts: Ts) -> Self {
-        BufferedSink { ts, buf: None }
+        OneBuffer { ts, buf: None }
     }
 
     /// Consume self, returning the inner `TardySink`.
@@ -77,8 +90,7 @@ impl<Item, Ts> BufferedSink<Item, Ts>
         -> Poll<Result<(), Ts::SinkError>>
     {
         if let Some(item) = self.as_mut().buf().take() {
-            let tsp: Pin<&mut Ts> = self.as_mut().ts();
-            match tsp.poll_send(cx, item) {
+            match self.as_mut().ts().poll_send(cx, item) {
                 Ok(None) => Poll::Ready(Ok(())),
                 Ok(s @ Some(_)) => {
                     *self.as_mut().buf() = s;
@@ -92,7 +104,7 @@ impl<Item, Ts> BufferedSink<Item, Ts>
     }
 }
 
-impl<Item, Ts> Sink<Item> for BufferedSink<Item, Ts>
+impl<Ts, Item> Sink<Item> for OneBuffer<Ts, Item>
     where Ts: TardySink<Item>
 {
     type SinkError = Ts::SinkError;
@@ -169,7 +181,7 @@ mod tests {
                 //
                 // FIXME: Currently assuming this is an appropriate, TardySink
                 // impl. requirement. Alternatively, it would need to be
-                // included in BufferedSink, whenever it returns Pending.
+                // included in OneBuffer, whenever it returns Pending.
                 cx.waker().wake_by_ref();
 
                 Ok(Some(item))
@@ -185,7 +197,7 @@ mod tests {
     fn forward_small() {
         let task = async {
             let stream = futures::stream::iter(vec![0u8, 1, 2, 3, 4]);
-            let mut sink = BufferedSink::new(TestSink::new());
+            let mut sink = TestSink::new().into_sink();
             stream
                 .map(|i| Ok(i))
                 .forward(&mut sink)
