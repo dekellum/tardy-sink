@@ -1,5 +1,8 @@
 # tardy-sink
 
+[![Travis CI Build](https://travis-ci.org/dekellum/tardy-sink.svg?branch=master)](https://travis-ci.org/dekellum/tardy-sink)
+[![Appveyor CI Build](https://ci.appveyor.com/api/projects/status/ojjj3wihiye3g55s/branch/master?svg=true)](https://ci.appveyor.com/project/dekellum/tardy-sink)
+
 Experiment with futures 0.3 Sink implementer ergonomics.
 
 ## License
@@ -15,5 +18,5 @@ This project is dual licensed under either of following:
 ### Contribution
 
 Unless you explicitly state otherwise, any contribution intentionally submitted
-for inclusion in olio by you, as defined by the Apache License, shall be dual
-licensed as above, without any additional terms or conditions.
+for inclusion in tardy-sink by you, as defined by the Apache License, shall be
+dual licensed as above, without any additional terms or conditions.
