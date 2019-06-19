@@ -128,8 +128,7 @@ impl<Ts, Item> Sink<Item> for OneBuffer<Ts, Item>
     {
         match self.as_mut().poll_flush_buf(cx) {
             Poll::Ready(Ok(_)) => {
-                let tsp: Pin<&mut Ts> = self.as_mut().ts();
-                tsp.poll_flush(cx)
+                self.as_mut().ts().poll_flush(cx)
             }
             res => res
         }
@@ -140,8 +139,7 @@ impl<Ts, Item> Sink<Item> for OneBuffer<Ts, Item>
     {
         match self.as_mut().poll_flush(cx) {
             Poll::Ready(Ok(_)) => {
-                let tsp: Pin<&mut Ts> = self.as_mut().ts();
-                tsp.poll_close(cx)
+                self.as_mut().ts().poll_close(cx)
             }
             res => res
         }
