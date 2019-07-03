@@ -9,7 +9,7 @@ use pin_utils::{unsafe_pinned, unsafe_unpinned};
 /// A sink which doesn't know it's readiness until it tries to consume an Item.
 pub trait TardySink<Item>
 {
-    type SinkError;
+    type Error;
 
     /// Attempt to consume an `Item`, as a logical combination of
     /// `Sink::poll_ready` and `Sink::start_send`.
@@ -26,12 +26,12 @@ pub trait TardySink<Item>
     /// its delegate must eventually _wake_, via the passed `Context`
     /// accessible `Waker`, in order to continue.
     fn poll_send(self: Pin<&mut Self>, cx: &mut Context<'_>, item: Item)
-        -> Result<Option<Item>, Self::SinkError>;
+        -> Result<Option<Item>, Self::Error>;
 
     /// Equivalent to `Sink::poll_flush`, with this default no-op
     /// implementation always returning `Poll::Ready(Ok(()))`.
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
+        -> Poll<Result<(), Self::Error>>
     {
         Poll::Ready(Ok(()))
     }
@@ -39,7 +39,7 @@ pub trait TardySink<Item>
     /// Equivalent to `Sink::poll_close`, with this default no-op
     /// implementation always returning `Poll::Ready(Ok(()))`.
     fn poll_close(self: Pin<&mut Self>, _cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
+        -> Poll<Result<(), Self::Error>>
     {
         Poll::Ready(Ok(()))
     }
@@ -87,7 +87,7 @@ impl<Ts, Item> OneBuffer<Ts, Item>
     }
 
     fn poll_flush_buf(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
-        -> Poll<Result<(), Ts::SinkError>>
+        -> Poll<Result<(), Ts::Error>>
     {
         if let Some(item) = self.as_mut().buf().take() {
             match self.as_mut().ts().poll_send(cx, item) {
@@ -107,16 +107,16 @@ impl<Ts, Item> OneBuffer<Ts, Item>
 impl<Ts, Item> Sink<Item> for OneBuffer<Ts, Item>
     where Ts: TardySink<Item>
 {
-    type SinkError = Ts::SinkError;
+    type Error = Ts::Error;
 
     fn poll_ready(self: Pin<&mut Self>, cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
+        -> Poll<Result<(), Self::Error>>
     {
         self.poll_flush_buf(cx)
     }
 
     fn start_send(self: Pin<&mut Self>, item: Item)
-        -> Result<(), Self::SinkError>
+        -> Result<(), Self::Error>
     {
         assert!(self.buf.is_none());
         *self.buf() = Some(item);
@@ -124,7 +124,7 @@ impl<Ts, Item> Sink<Item> for OneBuffer<Ts, Item>
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
+        -> Poll<Result<(), Self::Error>>
     {
         match self.as_mut().poll_flush_buf(cx) {
             Poll::Ready(Ok(_)) => {
@@ -135,7 +135,7 @@ impl<Ts, Item> Sink<Item> for OneBuffer<Ts, Item>
     }
 
     fn poll_close(mut self: Pin<&mut Self>, cx: &mut Context<'_>)
-        -> Poll<Result<(), Self::SinkError>>
+        -> Poll<Result<(), Self::Error>>
     {
         match self.as_mut().poll_flush(cx) {
             Poll::Ready(Ok(_)) => {
@@ -164,10 +164,10 @@ mod tests {
     }
 
     impl TardySink<u8> for TestSink {
-        type SinkError = ();
+        type Error = ();
 
         fn poll_send(mut self: Pin<&mut Self>, cx: &mut Context<'_>, item: u8)
-            -> Result<Option<u8>, Self::SinkError>
+            -> Result<Option<u8>, Self::Error>
         {
             self.count += 1;
 
