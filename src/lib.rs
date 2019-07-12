@@ -18,7 +18,8 @@ pub trait TardySink<Item>
     ///
     /// * `Ok(None)` on successful and complete consumption of the item.
     /// * `Ok(Some(item))` if the sink is not ready (e.g. Poll::Pending),
-    ///   returning the item for later retries.
+    ///   returning the same (possibly modified) item, or a different `Item`,
+    ///   for subsequent retry.
     /// * `Err(e)` on any error occurring during a check for readiness or
     ///   consumption of the item.
     ///
