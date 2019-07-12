@@ -6,7 +6,9 @@ use std::task::{Context, Poll};
 use futures::sink::Sink;
 use pin_utils::{unsafe_pinned, unsafe_unpinned};
 
-/// A sink which doesn't know it's readiness until it tries to consume an Item.
+/// A sink which doesn't know it's readiness until it tries to consume an
+/// Item. An implementation of this trait may be adapted to the standard
+/// futures `Sink` by calling [`TardySinkExt::into_sink`].
 pub trait TardySink<Item>
 {
     type Error;
@@ -46,6 +48,7 @@ pub trait TardySink<Item>
     }
 }
 
+/// An extension trait for `TardySink`s offering convenience methods.
 pub trait TardySinkExt<Item>: TardySink<Item> {
     /// Consume self and return a `Sink` adapter
     fn into_sink(self) -> OneBuffer<Self, Item>
