@@ -175,8 +175,8 @@ mod tests {
         {
             self.count += 1;
 
-            // For testing, push back as Pending every other time
-            if self.count % 2 == 0 {
+            // For testing, push back as Pending only periodically.
+            if self.count % 3 == 0 || self.count % 4 == 0 {
                 eprintln!("poll send back (count: {})", self.count);
 
                 // Waking is currently needed. Test never completes without it.
@@ -198,7 +198,8 @@ mod tests {
     #[test]
     fn forward_small() {
         let task = async {
-            let stream = futures::stream::iter(vec![0u8, 1, 2, 3, 4]);
+            let vals: Vec<u8> = (0u8..100u8).collect();
+            let stream = futures::stream::iter(vals.clone());
             let mut sink = TestSink::new().into_sink();
             stream
                 .map(|i| Ok(i))
@@ -207,7 +208,7 @@ mod tests {
                 .expect("forward");
 
             let ts = sink.into_inner();
-            assert_eq!(vec![0u8, 1, 2, 3, 4], ts.out);
+            assert_eq!(vals, ts.out);
 
             let res: Result<(),()> = Ok(());
             res
